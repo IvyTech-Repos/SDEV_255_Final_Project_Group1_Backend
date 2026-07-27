@@ -1,7 +1,11 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jwt-simple");
 
 const courses = require("./data/courses");
+const users = require("./data/users");
 
 const app = express();
 
@@ -11,6 +15,67 @@ app.use(express.json());
 app.get("/", (req,res) => {
     res.send("Backend is running!");
 });
+
+// LOGIN
+app.post("/api/login", (req,res) => {
+    const {username,password} = req.body;
+    const user = users.find(
+        user => user.username === username &&
+        user.password === password
+    );
+
+    if (!user) {
+        return res.status(401).json({error: "Invalid username or password"})
+        }
+
+    const payload = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        exp: Date.now() + (60 * 60 * 1000)
+    };
+
+    const token = jwt.encode(payload, SECRET);
+
+    res.json({
+        token: token,
+        role: user.role
+    });
+});
+
+// CHECK JWT TOKEN
+function authenticate(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({error: "No token provided"})
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const decoded = jwt.decode(token, SECRET);
+
+        if (decoded.exp < DATE.now()) {
+            return res.status(401).json({error: "Token expired"})
+        }
+
+        req.user = decoded;
+
+        next();
+    } catch(error) {
+        return res.status(401).json({error: "Invalid token"})
+    }
+}
+
+// TEACHER AUTHORIZATION
+function teacherOnly(req, res, next) {
+    if (req.user.role !== "teacher") {
+        return res.status(401).json({error: "Teachers only"})
+    }
+
+    next();
+}
 
 // GET all courses
 app.get("/api/courses", (req,res) => {
@@ -34,7 +99,7 @@ app.get("/api/courses/:id", (req, res) => {
 });
 
 // UPDATE a course
-app.put("/api/courses/:id", (req, res) => {
+app.put("/api/courses/:id", authenticate, teacherOnly, (req, res) => {
 
     const id = Number(req.params.id);
 
@@ -56,7 +121,7 @@ app.put("/api/courses/:id", (req, res) => {
 });
 
 // DELETE a course
-app.delete("/api/courses/:id", (req, res) => {
+app.delete("/api/courses/:id", authenticate, teacherOnly, (req, res) => {
 
     const id = Number(req.params.id);
 
@@ -74,7 +139,7 @@ app.delete("/api/courses/:id", (req, res) => {
 });
 
 // CREATE a course
-app.post("/api/courses", (req,res) => {
+app.post("/api/courses", authenticate, teacherOnly, (req, res) => {
     const newCourse = {
         id: courses.length + 1,
         subject: req.body.subject,
