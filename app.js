@@ -4,6 +4,8 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jwt-simple");
 
+const SECRET = process.env.JWT_SECRET;
+
 const courses = require("./data/courses");
 const users = require("./data/users");
 
@@ -32,7 +34,7 @@ app.post("/api/login", (req,res) => {
         id: user.id,
         username: user.username,
         role: user.role,
-        exp: Date.now() + (60 * 60 * 1000)
+        exp: Math.floor(Date.now() / 1000) + (60 * 60)
     };
 
     const token = jwt.encode(payload, SECRET);
