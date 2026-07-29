@@ -8,6 +8,7 @@ const SECRET = process.env.JWT_SECRET;
 
 const courses = require("./data/courses");
 const users = require("./data/users");
+const cart = require("./data/cart");
 
 const app = express();
 
@@ -45,6 +46,17 @@ app.post("/api/login", (req,res) => {
     });
 });
 
+// STUDENT CART CHECK
+function studentOnly(req,res,next) {
+    if(req.user.role !== "student"){
+        return res.status(401).json({
+            error:"Students only"
+        });
+    }
+
+    next();
+}
+
 // CHECK JWT TOKEN
 function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -58,7 +70,7 @@ function authenticate(req, res, next) {
     try {
         const decoded = jwt.decode(token, SECRET);
 
-        if (decoded.exp < DATE.now()) {
+        if (decoded.exp < Date.now() / 1000) {
             return res.status(401).json({error: "Token expired"})
         }
 
@@ -154,6 +166,64 @@ app.post("/api/courses", authenticate, teacherOnly, (req, res) => {
     courses.push(newCourse);
 
     res.status(201).json(newCourse);
+});
+
+// GET LOGGED-IN STUDENT'S CART
+app.get("/api/cart", authenticate, studentOnly, (req,res)=>{
+    const studentCart = cart.filter(
+        item => item.studentId === req.user.id
+    );
+
+    res.json(studentCart);
+});
+
+// ADD COURSE TO STUDENT'S CART
+app.post("/api/cart", authenticate, studentOnly, (req,res)=>{
+
+    const existingItem = cart.find(
+        item =>
+            item.studentId === req.user.is &&
+            item.courseId === req.body.courseId
+    );
+
+    if(existingItem) {
+        return res.status(400).json({
+            message:"Course already in cart"
+        });
+    }
+
+    const newItem = {
+        id: cart.length + 1,
+        studentId: req.user.id,
+        courseId: req.body.courseId
+    };
+
+    cart.push(newItem);
+
+    res.status(201).json(newItem);
+});
+
+// REMOVE COURSE FROM STUDENT'S CART
+app.delete("/api/cart/:id", authenticate, studentOnly, (req,res)=>{
+    const id = Number(req.params.id);
+
+    const index = cart.findIndex(
+        item =>
+            item.id === id &&
+            item.studentId === req.user.id
+    );
+
+    if(index === -1) {
+        return res.status(404).json({
+            message:"Cart item not found"
+        });
+    }
+
+    cart.splice(index,1);
+
+    res.json({
+        message:"Course removed from cart"
+    });
 });
 
 
