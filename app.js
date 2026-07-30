@@ -182,7 +182,7 @@ app.post("/api/cart", authenticate, studentOnly, (req,res)=>{
 
     const existingItem = cart.find(
         item =>
-            item.studentId === req.user.is &&
+            item.studentId === req.user.id &&
             item.courseId === req.body.courseId
     );
 
