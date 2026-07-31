@@ -177,6 +177,27 @@ app.get("/api/cart", authenticate, studentOnly, (req,res)=>{
     res.json(studentCart);
 });
 
+// GET LOGGED-IN STUDENT'S SCHEDULE
+app.get("/api/schedule", authenticate, studentOnly, (req, res) => {
+    const studentCart = cart.filter(
+        item => item.studentId === req.user.id
+    );
+
+    const schedule = studentCart.map(item => {
+        const course = courses.find(
+            course => course.id === item.courseId
+        );
+
+        return {
+            cartId: item.id,
+            courseId: item.courseId,
+            course: course || null
+        };
+    }).filter(item => item.course !== null);
+
+    res.json(schedule);
+});
+
 // ADD COURSE TO STUDENT'S CART
 app.post("/api/cart", authenticate, studentOnly, (req,res)=>{
 
